@@ -1,0 +1,1 @@
+ethers::ethers_contract::ContractInstance<std::sync::Arc<ethers::ethers_providers::Provider<ethers::ethers_providers::Provider<ethers::ethers_providers::Ws>>>, ethers::ethers_providers::Provider<ethers::ethers_providers::Provider<ethers::ethers_providers::Ws>>>

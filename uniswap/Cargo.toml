@@ -1,0 +1,15 @@
+[package]
+name = "uniswap"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ethers = { workspace = true, features = ["legacy", "ws", "rustls"]}
+# Ethers' async features rely upon the Tokio async runtime.
+tokio = { workspace = true, features = ["full"] }
+# Flexible concrete Error Reporting type built on std::error::Error with customizable Reports
+eyre = { workspace = true }
+serde_json = { workspace = true }
+colored = { workspace = true }
