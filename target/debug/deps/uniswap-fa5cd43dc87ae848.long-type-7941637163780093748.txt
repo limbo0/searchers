@@ -1,1 +1,0 @@
-impl std::future::Future<Output = std::result::Result<ethers::types::H160, ethers::ethers_contract::ContractError<ethers::ethers_providers::Provider<ethers::ethers_providers::Http>>>>

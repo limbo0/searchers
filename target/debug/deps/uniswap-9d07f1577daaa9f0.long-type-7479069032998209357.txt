@@ -1,1 +1,0 @@
-impl std::future::Future<Output = std::result::Result<_, ethers::ethers_contract::ContractError<ethers::ethers_providers::Provider<ethers::ethers_providers::Ws>>>>

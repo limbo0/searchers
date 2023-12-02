@@ -1,1 +1,0 @@
-std::result::Result<ethers::ethers_contract::ContractInstance<std::sync::Arc<std::sync::Arc<std::sync::Arc<ethers::ethers_providers::Provider<ethers::ethers_providers::Ws>>>>, std::sync::Arc<std::sync::Arc<ethers::ethers_providers::Provider<ethers::ethers_providers::Ws>>>>, ()>
