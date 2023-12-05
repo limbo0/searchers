@@ -1,0 +1,11 @@
+[package]
+name = "alloyed"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-primitives.workspace = true
+alloy-sol-types.workspace = true
+eyre.workspace = true

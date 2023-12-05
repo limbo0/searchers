@@ -9,7 +9,6 @@ use ethers::{
     utils::{format_units, Units},
 };
 use eyre::Result;
-use colored::Color;
 use serde_json;
 use std::{
     cmp::{max, min},
@@ -25,7 +24,7 @@ abigen!(UNI_V3_FACTORY, "./uniswapABI/UniswapV3Factory.json");
 abigen!(UNI_V2_PAIR, "./uniswapABI/V2PairABI.json");
 abigen!(UNI_V3_PAIR, "./uniswapABI/V3PairABI.json");
 abigen!(ERC20, "./abi/erc20.json");
-const RPC_URL: &str = "wss://eth-mainnet.g.alchemy.com/v2/AM3AXcpsHM2QfhCpSVDadRAwEe70bHEy";
+const RPC_URL_MAINNET: &str = "wss://eth-mainnet.g.alchemy.com/v2/AM3AXcpsHM2QfhCpSVDadRAwEe70bHEy";
 const WETH: &str = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
 const DAI: &str = "0x6b175474e89094c44da98b954eedeac495271d0f";
 const USDC: &str = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
@@ -49,7 +48,7 @@ type NodeClient = Arc<Provider<Ws>>;
 #[allow(unused_variables, dead_code)]
 #[tokio::main]
 async fn main() -> Result<()> {
-    let provider = Provider::<Ws>::connect(RPC_URL).await?;
+    let provider = Provider::<Ws>::connect(RPC_URL_MAINNET).await?;
     // let provider = Provider::try_from(MAINNET_FORK)?;
     let client = Arc::new(provider);
 
@@ -69,7 +68,7 @@ async fn main() -> Result<()> {
     let alice = ALICE.parse::<Address>()?;
 
     let test_contract_abi: Abi = serde_json::from_str(
-        r#"[{"inputs":[{"internalType":"address","name":"_balancerVault","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"uint256","name":"amount0In","type":"uint256"},{"internalType":"uint256","name":"amount1out","type":"uint256"}],"name":"BOTH_IN_AND_OUT_CANNT_BE_ZERO","type":"error"},{"inputs":[],"name":"ZERO_AMOUNT_INPUT","type":"error"},{"inputs":[],"name":"ZERO_MINIMUN_OUTPUT","type":"error"},{"inputs":[],"name":"ZERO_POOL_ADDRESS","type":"error"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previousOwner","type":"address"},{"indexed":true,"internalType":"address","name":"newOwner","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"int256","name":"amount0Delta","type":"int256"},{"indexed":true,"internalType":"int256","name":"amount1Delta","type":"int256"}],"name":"SwapCallback","type":"event"},{"stateMutability":"payable","type":"fallback"},{"inputs":[{"internalType":"address","name":"pool","type":"address"},{"internalType":"address","name":"recipient","type":"address"},{"internalType":"uint160","name":"sqrtPriceLimitX96","type":"uint160"},{"internalType":"uint256","name":"amount1In","type":"uint256"},{"internalType":"uint256","name":"amount0Out","type":"uint256"}],"name":"oneForZero","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"contract IERC20[]","name":"tokens","type":"address[]"},{"internalType":"uint256[]","name":"amounts","type":"uint256[]"},{"internalType":"uint256[]","name":"feeAmounts","type":"uint256[]"},{"internalType":"bytes","name":"userData","type":"bytes"}],"name":"receiveFlashLoan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"renounceOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"bytes","name":"userData","type":"bytes"}],"name":"requestFlashLoan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"int256","name":"amount0Delta","type":"int256"},{"internalType":"int256","name":"amount1Delta","type":"int256"},{"internalType":"bytes","name":"data","type":"bytes"}],"name":"uniswapV3SwapCallback","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"pool","type":"address"},{"internalType":"address","name":"tokenInAddress","type":"address"},{"internalType":"uint256","name":"amountIn","type":"uint256"},{"internalType":"uint256","name":"amountOutMin","type":"uint256"},{"internalType":"address","name":"to","type":"address"},{"internalType":"bytes","name":"data","type":"bytes"}],"name":"v2Swap","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"pool","type":"address"},{"internalType":"address","name":"recipient","type":"address"},{"internalType":"uint160","name":"sqrtPriceLimitX96","type":"uint160"},{"internalType":"uint256","name":"amount0In","type":"uint256"},{"internalType":"uint256","name":"amount1Out","type":"uint256"}],"name":"zeroForOne","outputs":[],"stateMutability":"nonpayable","type":"function"},{"stateMutability":"payable","type":"receive"}]"#,
+        r#"[{"inputs":[{"internalType":"address","name":"_balancerVault","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"uint256","name":"amount0In","type":"uint256"},{"internalType":"uint256","name":"amount1out","type":"uint256"}],"name":"BOTH_IN_AND_OUT_CANNT_BE_ZERO","type":"error"},{"inputs":[],"name":"ZERO_AMOUNT_INPUT","type":"error"},{"inputs":[],"name":"ZERO_MINIMUN_OUTPUT","type":"error"},{"inputs":[],"name":"ZERO_POOL_ADDRESS","type":"error"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previousOwner","type":"address"},{"indexed":true,"internalType":"address","name":"newOwner","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"int256","name":"amount0Delta","type":"int256"},{"indexed":true,"internalType":"int256","name":"amount1Delta","type":"int256"}],"name":"SwapCallback","type":"event"},{"stateMutability":"payable","type":"fallback"},{"inputs":[{"components":[{"internalType":"address","name":"pool","type":"address"},{"internalType":"address","name":"recipient","type":"address"},{"internalType":"uint160","name":"sqrtPriceLimitX96","type":"uint160"},{"internalType":"uint256","name":"amount0In","type":"uint256"},{"internalType":"uint256","name":"amount0Out","type":"uint256"},{"internalType":"uint256","name":"amount1In","type":"uint256"},{"internalType":"uint256","name":"amount1Out","type":"uint256"},{"internalType":"bool","name":"zeroFurOne","type":"bool"},{"internalType":"bytes","name":"data","type":"bytes"}],"internalType":"struct TargetSwap.SwapParams","name":"sp","type":"tuple"}],"name":"oneForZero","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"contract IERC20[]","name":"tokens","type":"address[]"},{"internalType":"uint256[]","name":"amounts","type":"uint256[]"},{"internalType":"uint256[]","name":"feeAmounts","type":"uint256[]"},{"internalType":"bytes","name":"userData","type":"bytes"}],"name":"receiveFlashLoan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"renounceOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"token","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"bytes","name":"userData","type":"bytes"}],"name":"requestFlashLoan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"int256","name":"amount0Delta","type":"int256"},{"internalType":"int256","name":"amount1Delta","type":"int256"},{"internalType":"bytes","name":"data","type":"bytes"}],"name":"uniswapV3SwapCallback","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"components":[{"internalType":"address","name":"pool","type":"address"},{"internalType":"address","name":"recipient","type":"address"},{"internalType":"uint160","name":"sqrtPriceLimitX96","type":"uint160"},{"internalType":"uint256","name":"amount0In","type":"uint256"},{"internalType":"uint256","name":"amount0Out","type":"uint256"},{"internalType":"uint256","name":"amount1In","type":"uint256"},{"internalType":"uint256","name":"amount1Out","type":"uint256"},{"internalType":"bool","name":"zeroFurOne","type":"bool"},{"internalType":"bytes","name":"data","type":"bytes"}],"internalType":"struct TargetSwap.SwapParams","name":"sp","type":"tuple"}],"name":"v2Swap","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"components":[{"internalType":"address","name":"pool","type":"address"},{"internalType":"address","name":"recipient","type":"address"},{"internalType":"uint160","name":"sqrtPriceLimitX96","type":"uint160"},{"internalType":"uint256","name":"amount0In","type":"uint256"},{"internalType":"uint256","name":"amount0Out","type":"uint256"},{"internalType":"uint256","name":"amount1In","type":"uint256"},{"internalType":"uint256","name":"amount1Out","type":"uint256"},{"internalType":"bool","name":"zeroFurOne","type":"bool"},{"internalType":"bytes","name":"data","type":"bytes"}],"internalType":"struct TargetSwap.SwapParams","name":"sp","type":"tuple"}],"name":"zeroForOne","outputs":[],"stateMutability":"nonpayable","type":"function"},{"stateMutability":"payable","type":"receive"}]"#,
     )?;
 
     let sepolia_test_contract = Contract::new(
@@ -464,9 +463,9 @@ async fn buy_zero_sell_zero<T>(
     sepolia_test_contract: Contract<T>,
 ) -> Result<()> {
     let starting_buy_units = U256::from(100);
-    let slippage_percent: f64 = 1.0;
+    let slippage_percent: f64 = 0.5;
     let mut counter: u32 = 0;
-    let iter_limit: u32 = 10;
+    let iter_limit: u32 = 999;
 
     // pair addresses.
     let pair_address = get_pair_address(token0, token1, fee, client).await?;
@@ -479,7 +478,7 @@ async fn buy_zero_sell_zero<T>(
         let hr = return_low_high(uni_v2_price, uni_v3_price);
 
         println!(
-            "low__zero: {} {} {} {} \nhigh_zero: {} {} {} {}\n",
+            "low__zero: {:#?} {:#?} {:#?} {:#?} \nhigh_zero: {:#?} {:#?} {:#?} {:#?}\n",
             hr.l_zero_th_pair.unwrap(),
             hr.l_zero_th_dex.unwrap(),
             hr.l_zero_th_token.unwrap(),
@@ -491,7 +490,7 @@ async fn buy_zero_sell_zero<T>(
         );
 
         println!(
-            "low__one: {} {} {} {} \nhigh_one: {} {} {} {}\n",
+            "low__one: {:#?} {:#?} {:#?} {:#?} \nhigh_one: {:#?} {:#?} {:#?} {:#?}\n",
             hr.l_one_th_pair.unwrap(),
             hr.l_one_th_dex.unwrap(),
             hr.l_one_th_token.unwrap(),
@@ -540,6 +539,7 @@ async fn buy_zero_sell_zero<T>(
         let buy_amount: U256 = starting_buy_units * power_of_zeroth_index;
 
         let sqrt_x96 = hr.sqrt_x96_v3.unwrap();
+        println!("{sqrt_x96}");
 
         // this first txn could be thought as exact_output type swap
         // since price is calculated as token_price * token_units_to_buy.
@@ -585,182 +585,194 @@ async fn buy_zero_sell_zero<T>(
         let expected_output_1 = (amount_out_min * power_of_oneth_index) / single_unit_price_1;
 
         // initial check.
-        if expected_output_1 < amount_in {
-            println!(
-                "non profitable:\nexpected_output: {expected_output_1} amount_spent: {amount_in} current_loss: {}\n", amount_in - expected_output_1
-            );
-            println!("current iteration zero_f_one: {}", counter);
-            if counter.gt(&iter_limit) {
-                break 'outer;
-            }
-            continue 'outer;
-        } else {
-            let mut f = File::options().append(true).open("./logs.txt")?;
-            writeln!(&mut f, "intial check profit:{}", (expected_output_1 - amount_in))?;
-        }
-
-        // the decimal percentage is multiplied by power_of_zeroth_index
-        // which makes it possible to store as U256.
-        let slippage_1 = U256::from(
-            ((slippage_percent / 100f64) * 10f64.powi(hr.l_one_th_dec.unwrap().into())) as u128,
-        );
-
-        // here we divide by power_of_oneth_index to get the actual value back.
-        // since amount_in is already in fixed point value.
-        // if amount_in wasn't in FPV then no divide needed.
-        let slippage_1 = (slippage_1 * expected_output_1) / power_of_oneth_index;
-
-        let amount_out_min_1 = expected_output_1 - slippage_1;
-
-        // buy amount in fixed point value.
-        // buy amount is the output of prev swap.
-        let buy_amount_1: U256 = expected_output_1;
-
-        // this txn can be thought as exact_input in
-        // expecting as much possible output as possible.
-        println!(
-            "Back run tx: pool: {:#?} token_out: {:#?} token_in: {:#?} price: {:#?}",
-            cheap_pool_oneth, token_out_1, token_in_1, single_unit_price_1
-        );
-        println!(
-            "buy_amount: {:#?} amount_in: {:#?} amount_out_min: {:#?}\n",
-            buy_amount_1, amount_in_1, amount_out_min_1
-        );
-
-        // second check after slippage.
-        // second swap output has to be greater than the input of the first swap.
-        if amount_out_min_1 < amount_in {
-            if counter.gt(&iter_limit) {
-                break 'outer;
-            }
-            println!("non profitable");
-            // continue 'outer;
-            continue 'outer;
-        } else {
-            let mut f = File::options().append(true).open("./logs.txt")?;
-            writeln!(&mut f, "after slippage profit:{}", {amount_out_min_1 - amount_in})?;
-
-        }
-
-        // conditional execution ahead.
-        match hr.l_zero_th_dex == Some("uni_v2") {
-            true => {
-                println!("execution start from uni_v2, buying token underlying on zero'th index.");
-                let flash_loan_selector_str: &str = "0x5107d61e";
-                let flash_loan_selector = function_selector(flash_loan_selector_str);
-
-                let encoded_v2_swap = Bytes::new();
-
-                // flash loan encoding, with extra bytes data for swap exe.
-                let encoded_loan_with_bytes_to_swap = sepolia_test_contract
-                    .encode_with_selector(
-                        flash_loan_selector,
-                        (token_in, amount_in, encoded_v2_swap),
-                    )
-                    .unwrap();
-
-                // send transaction only after back run txn simulation outputs profitable result.
-                let signing_client = SignerMiddleware::new(client.clone(), wallet.clone());
-                let tx = TransactionRequest::new()
-                    .to(SEPOLIA_TEST_CONTRACT_ADDRESS.parse::<Address>()?)
-                    .data(encoded_loan_with_bytes_to_swap);
-                let pending_tx = signing_client.send_transaction(tx, None).await?;
-                let receipt = pending_tx
-                    .await?
-                    .ok_or_else(|| eyre::format_err!("tx dropped from mempool"))?;
-
-                // let tx = signing_client
-                //     .get_transaction(receipt.transaction_hash)
-                //     .await?;
-                // println!("Sent tx: {}\n", serde_json::to_string(&tx)?);
-                println!("Tx receipt: {}", serde_json::to_string(&receipt)?);
-            }
+        match expected_output_1 > amount_in {
             false => {
-                println!("execution start from uni_v3, buying token underlying on zero'th index.");
-                // smart contract executions for swap.
-                let flash_loan_selector_str: &str = "0x5107d61e";
-                let flash_loan_selector = function_selector(flash_loan_selector_str);
+                println!(
+                    "non profitable before slippage adjustment:\nexpected_output: {expected_output_1} amount_spent: {amount_in} current_loss: {}\n", amount_in - expected_output_1
+                );
 
-                // token swap encoding.
-                let one_for_zero_selector_str: &str = "0xa2eb605f";
-                let zero_for_one_selector_str: &str = "0x211760ee";
+                println!("current iteration zero_f_one: {}", counter);
+                if counter.gt(&iter_limit) {
+                    break 'outer;
+                }
+                continue 'outer;
+            }
 
-                let one_for_zero_selector = function_selector(one_for_zero_selector_str);
-                let zero_for_one_selector = function_selector(zero_for_one_selector_str);
+            true => {
+                // log for testing purpose.
+                let mut f = File::options().append(true).open("./logs.txt")?;
+                writeln!(
+                    &mut f,
+                    "intial check profit:{}",
+                    (expected_output_1 - amount_in)
+                )?;
 
-                // one'th indexed token in zero'th indexed token out.
-                let encoded_one_for_zero_swap = sepolia_test_contract
-                    .encode_with_selector(
-                        one_for_zero_selector,
-                        (
-                            cheap_pool_zeroth,
-                            sender,
-                            sqrt_x96,
-                            // amount_in for exact input.
-                            amount_in,
-                            // amount_out for exact output.
-                            U256::from(0),
-                        ),
-                    )
-                    .unwrap()
-                    .to_vec();
+                // the decimal percentage is multiplied by power_of_zeroth_index
+                // which makes it possible to store as U256.
+                let slippage_1 = U256::from(
+                    ((slippage_percent / 100f64) * 10f64.powi(hr.l_one_th_dec.unwrap().into()))
+                        as u128,
+                );
 
-                // zero'th indexed token in one'th indexed token out.
-                let encoded_zero_for_one_swap = sepolia_test_contract
-                    .encode_with_selector(
-                        zero_for_one_selector,
-                        (
-                            cheap_pool_oneth,
-                            sender,
-                            sqrt_x96,
-                            // amount_in for exact input.
-                            amount_in_1,
-                            // amount out for exact output.
-                            U256::from(0),
-                        ),
-                    )
-                    .unwrap()
-                    .to_vec();
+                // here we divide by power_of_oneth_index to get the actual value back.
+                // since amount_in is already in fixed point value.
+                // if amount_in wasn't in FPV then no divide needed.
+                let slippage_1 = (slippage_1 * expected_output_1) / power_of_oneth_index;
 
-                // token for testing on sepolia.
-                // let _test_token: Address =
-                //     "0x391e06B49B5483877DB943c0041C4aE6097Cd1B3".parse::<Address>()?;
+                let amount_out_min_1 = expected_output_1 - slippage_1;
 
-                // let execution_bytes_data = encode(&[
-                //     Token::Bytes(encoded_one_for_zero_swap.to_vec()),
-                //     Token::Bytes(encoded_zero_for_one_swap.to_vec()),
-                // ]);
+                // buy amount in fixed point value.
+                // buy amount is the output of prev swap.
+                let buy_amount_1: U256 = expected_output_1;
 
-                let execution_bytes_data = encode(&[
-                    Token::Bytes(encoded_one_for_zero_swap),
-                    Token::Bytes(encoded_zero_for_one_swap),
-                ]);
+                // this txn can be thought as exact_input in
+                // expecting as much possible output as possible.
+                println!(
+                    "Back run tx: pool: {:#?} token_out: {:#?} token_in: {:#?} price: {:#?}",
+                    cheap_pool_oneth, token_out_1, token_in_1, single_unit_price_1
+                );
+                println!(
+                    "buy_amount: {:#?} amount_in: {:#?} amount_out_min: {:#?}\n",
+                    buy_amount_1, amount_in_1, amount_out_min_1
+                );
 
-                println!("{:?}", execution_bytes_data);
+                // second check after slippage.
+                // second swap output has to be greater than the input of the first swap.
+                if amount_out_min_1 < amount_in {
+                    if counter.gt(&iter_limit) {
+                        break 'outer;
+                    }
+                    println!("non profitable");
+                    continue 'outer;
+                } else {
+                    println!("Building transaction post slippage check.\n");
+                    let mut f = File::options().append(true).open("./logs.txt")?;
+                    writeln!(&mut f, "after slippage profit:{}", {
+                        amount_out_min_1 - amount_in
+                    })?;
+                }
 
-                // flash loan encoding, with extra bytes data for swap exe.
-                let encoded_loan_with_bytes_to_swap = sepolia_test_contract
-                    .encode_with_selector(
-                        flash_loan_selector,
-                        (token_in, amount_in, execution_bytes_data),
-                    )
-                    .unwrap();
+                // conditional execution ahead checking dex.
+                match hr.l_zero_th_dex == Some("uni_v2") {
+                    true => {
+                        println!("execution start from uni_v2, buying token underlying on zero'th index.");
+                        let flash_loan_selector_str: &str = "0x5107d61e";
+                        let flash_loan_selector = function_selector(flash_loan_selector_str);
 
-                // send transaction only after back run txn simulation outputs profitable result.
-                let signing_client = SignerMiddleware::new(client.clone(), wallet.clone());
-                let tx = TransactionRequest::new()
-                    .to(SEPOLIA_TEST_CONTRACT_ADDRESS.parse::<Address>()?)
-                    .data(encoded_loan_with_bytes_to_swap);
-                let pending_tx = signing_client.send_transaction(tx, None).await?;
-                let receipt = pending_tx
-                    .await?
-                    .ok_or_else(|| eyre::format_err!("tx dropped from mempool"))?;
+                        let encoded_v2_swap = Bytes::new();
 
-                let tx = signing_client
-                    .get_transaction(receipt.transaction_hash)
-                    .await?;
-                println!("Sent tx: {}\n", serde_json::to_string(&tx)?);
-                println!("Tx receipt: {}", serde_json::to_string(&receipt)?);
+                        // flash loan encoding, with extra bytes data for swap exe.
+                        let encoded_loan_with_bytes_to_swap = sepolia_test_contract
+                            .encode_with_selector(
+                                flash_loan_selector,
+                                (token_in, amount_in, encoded_v2_swap),
+                            )
+                            .unwrap();
+
+                        // send transaction only after back run txn simulation outputs profitable result.
+                        let signing_client = SignerMiddleware::new(client.clone(), wallet.clone());
+                        let tx = TransactionRequest::new()
+                            .to(SEPOLIA_TEST_CONTRACT_ADDRESS.parse::<Address>()?)
+                            .data(encoded_loan_with_bytes_to_swap);
+                        let pending_tx = signing_client.send_transaction(tx, None).await?;
+                        let receipt = pending_tx
+                            .await?
+                            .ok_or_else(|| eyre::format_err!("tx dropped from mempool"))?;
+
+                        let tx = signing_client
+                            .get_transaction(receipt.transaction_hash)
+                            .await?;
+                        println!("Sent tx: {}\n", serde_json::to_string(&tx)?);
+                        println!("Tx receipt: {}", serde_json::to_string(&receipt)?);
+                    }
+                    false => {
+                        println!("execution start from uni_v3, buying token underlying on zero'th index.");
+                        // smart contract executions for swap.
+                        let flash_loan_selector_str: &str = "0x5107d61e";
+                        let flash_loan_selector = function_selector(flash_loan_selector_str);
+
+                        // token swap encoding.
+                        let one_for_zero_selector_str: &str = "0xa2eb605f";
+                        let zero_for_one_selector_str: &str = "0x211760ee";
+
+                        let one_for_zero_selector = function_selector(one_for_zero_selector_str);
+                        let zero_for_one_selector = function_selector(zero_for_one_selector_str);
+
+                        // one'th indexed token in zero'th indexed token out.
+                        let encoded_one_for_zero_swap = sepolia_test_contract
+                            .encode_with_selector(
+                                one_for_zero_selector,
+                                (
+                                    cheap_pool_zeroth,
+                                    sender,
+                                    sqrt_x96,
+                                    // amount_in for exact input.
+                                    amount_in,
+                                    // amount_out for exact output.
+                                    U256::from(0),
+                                ),
+                            )
+                            .unwrap()
+                            .to_vec();
+
+                        // zero'th indexed token in one'th indexed token out.
+                        let encoded_zero_for_one_swap = sepolia_test_contract
+                            .encode_with_selector(
+                                zero_for_one_selector,
+                                (
+                                    cheap_pool_oneth,
+                                    sender,
+                                    sqrt_x96,
+                                    // amount_in for exact input.
+                                    amount_in_1,
+                                    // amount out for exact output.
+                                    U256::from(0),
+                                ),
+                            )
+                            .unwrap()
+                            .to_vec();
+
+                        // token for testing on sepolia.
+                        // let _test_token: Address =
+                        //     "0x391e06B49B5483877DB943c0041C4aE6097Cd1B3".parse::<Address>()?;
+
+                        // let execution_bytes_data = encode(&[
+                        //     Token::Bytes(encoded_one_for_zero_swap.to_vec()),
+                        //     Token::Bytes(encoded_zero_for_one_swap.to_vec()),
+                        // ]);
+
+                        let execution_bytes_data = encode(&[
+                            Token::Bytes(encoded_one_for_zero_swap),
+                            Token::Bytes(encoded_zero_for_one_swap),
+                        ]);
+
+                        println!("{:?}", execution_bytes_data);
+
+                        // flash loan encoding, with extra bytes data for swap exe.
+                        let encoded_loan_with_bytes_to_swap = sepolia_test_contract
+                            .encode_with_selector(
+                                flash_loan_selector,
+                                (token_in, amount_in, execution_bytes_data),
+                            )
+                            .unwrap();
+
+                        // send transaction only after back run txn simulation outputs profitable result.
+                        let signing_client = SignerMiddleware::new(client.clone(), wallet.clone());
+                        let tx = TransactionRequest::new()
+                            .to(SEPOLIA_TEST_CONTRACT_ADDRESS.parse::<Address>()?)
+                            .data(encoded_loan_with_bytes_to_swap);
+                        let pending_tx = signing_client.send_transaction(tx, None).await?;
+                        let receipt = pending_tx
+                            .await?
+                            .ok_or_else(|| eyre::format_err!("tx dropped from mempool"))?;
+
+                        let tx = signing_client
+                            .get_transaction(receipt.transaction_hash)
+                            .await?;
+                        println!("Sent tx: {}\n", serde_json::to_string(&tx)?);
+                        println!("Tx receipt: {}", serde_json::to_string(&receipt)?);
+                    }
+                }
             }
         }
     }
@@ -783,10 +795,10 @@ async fn buy_one_sell_one<T>(
     sepolia_test_contract: Contract<T>,
 ) -> Result<()> {
     let starting_buy_units: U256 = 10.into();
-    let slippage_percent: f64 = 0.2;
+    let slippage_percent: f64 = 0.5;
     let mut counter = 0;
 
-    let iter_limit: u32 = 10;
+    let iter_limit: u32 = 999;
     // pair addresses.
     let pair_address = get_pair_address(token0, token1, fee, client).await?;
 
@@ -862,6 +874,7 @@ async fn buy_one_sell_one<T>(
         let buy_amount: U256 = starting_buy_units * power_of_oneth_index;
 
         let sqrt_x96 = hr.sqrt_x96_v3.unwrap();
+        println!("{sqrt_x96}");
 
         println!(
             "Front run tx: pool: {:#?} token_out: {:#?} token_in: {:#?} price: {:#?}",
@@ -903,173 +916,193 @@ async fn buy_one_sell_one<T>(
         let expected_output_1 = (amount_out_min * power_of_zeroth_index) / single_unit_price_1;
 
         // initial check.
-        if expected_output_1 < amount_in {
-            println!(
-                "non profitable:\nexpected_output: {} amount_spent: {} current_loss: {:?}",
-                expected_output_1,
-                amount_in,
-                (amount_in - expected_output_1)
-            );
-            println!("current iteration oneForZero: {counter}\n");
-            if counter.gt(&iter_limit) {
-                break 'outer;
-            }
-            // break 'outer;
-            continue 'outer;
-        }
-
-        // the decimal percentage is multiplied by power_of_zeroth_index
-        // which makes it possible to store as U256.
-        let slippage_1 = U256::from(
-            ((slippage_percent / 100f64) * 10f64.powi(hr.l_zero_th_dec.unwrap().into())) as u128,
-        );
-
-        // here we divide by power_of_zeroth_index to get the actual value back.
-        // since amount_in is already in fixed point value.
-        // if amount_in wasn't in FPV then no divide needed.
-        let slippage_1 = (slippage_1 * expected_output_1) / power_of_zeroth_index;
-
-        // minimun token out units.
-        // minimum output for this swap has to be atleat the input amount of previous swap.
-        let amount_out_min_1 = expected_output_1 - slippage_1;
-
-        // buy amount in fixed point value.
-        let buy_amount_1: U256 = expected_output_1;
-
-        println!(
-            "Back run tx: pool: {:#?} token_out: {:#?} token_in: {:#?} price: {:#?}",
-            cheap_pool_zeroth, token_out_1, token_in_1, single_unit_price_1
-        );
-        println!(
-            "buy_amount: {:#?} amount_in: {:#?} amount_out_min: {:#?}",
-            buy_amount_1, amount_in_1, amount_out_min_1
-        );
-
-        // second check after slippage.
-        // second swap output has to be greater than the input of the first swap.
-        if amount_out_min_1 < amount_in {
-            println!("non profitable after slippage");
-            println!("current iteration oneForZero after slippage: {counter}\n");
-            if counter.gt(&iter_limit) {
-                break 'outer;
-            }
-            continue 'outer;
-        }
-
-        // conditional execution ahead.
-        match hr.l_zero_th_dex == Some("uni_v2") {
-            true => {
-                println!("execution start from uni_v2, buying token underlying on zero'th index.");
-                let flash_loan_selector_str: &str = "0x5107d61e";
-                let flash_loan_selector = function_selector(flash_loan_selector_str);
-
-                let encoded_v2_swap = Bytes::new();
-
-                // flash loan encoding, with extra bytes data for swap exe.
-                let encoded_loan_with_bytes_to_swap = sepolia_test_contract
-                    .encode_with_selector(
-                        flash_loan_selector,
-                        (token_in, amount_in, encoded_v2_swap),
-                    )
-                    .unwrap();
-
-                // send transaction only after back run txn simulation outputs profitable result.
-                let signing_client = SignerMiddleware::new(client.clone(), wallet.clone());
-                let tx = TransactionRequest::new()
-                    .to(SEPOLIA_TEST_CONTRACT_ADDRESS.parse::<Address>()?)
-                    .data(encoded_loan_with_bytes_to_swap);
-                let pending_tx = signing_client.send_transaction(tx, None).await?;
-                let receipt = pending_tx
-                    .await?
-                    .ok_or_else(|| eyre::format_err!("tx dropped from mempool"))?;
-
-                // let tx = signing_client
-                //     .get_transaction(receipt.transaction_hash)
-                //     .await?;
-                // println!("Sent tx: {}\n", serde_json::to_string(&tx)?);
-                println!("Tx receipt: {}", serde_json::to_string(&receipt)?);
-            }
+        match expected_output_1 > amount_in {
             false => {
-                println!("execution start from uni_v3, buying token underlying on zero'th index.");
-                // smart contract executions for swap.
-                let flash_loan_selector_str: &str = "0x5107d61e";
-                let flash_loan_selector = function_selector(flash_loan_selector_str);
+                println!(
+                    "non profitable:\nexpected_output: {} amount_spent: {} current_loss: {:?}",
+                    expected_output_1,
+                    amount_in,
+                    (amount_in - expected_output_1)
+                );
+                println!("current iteration oneForZero: {counter}\n");
+                if counter.gt(&iter_limit) {
+                    break 'outer;
+                }
+                // break 'outer;
+                continue 'outer;
+            }
 
-                // token swap encoding.
-                let one_for_zero_selector_str: &str = "0xa2eb605f";
-                let zero_for_one_selector_str: &str = "0x211760ee";
+            true => {
+                // log for testing purpose.
+                let mut f = File::options().append(true).open("./logs.txt")?;
+                writeln!(
+                    &mut f,
+                    "intial check profit B1S1:{}",
+                    (expected_output_1 - amount_in)
+                )?;
 
-                let one_for_zero_selector = function_selector(one_for_zero_selector_str);
-                let zero_for_one_selector = function_selector(zero_for_one_selector_str);
+                // the decimal percentage is multiplied by power_of_zeroth_index
+                // which makes it possible to store as U256.
+                let slippage_1 = U256::from(
+                    ((slippage_percent / 100f64) * 10f64.powi(hr.l_zero_th_dec.unwrap().into()))
+                        as u128,
+                );
 
-                // one'th indexed token in zero'th indexed token out.
-                let encoded_one_for_zero_swap = sepolia_test_contract
-                    .encode_with_selector(
-                        one_for_zero_selector,
-                        (
-                            cheap_pool_zeroth,
-                            sender,
-                            sqrt_x96,
-                            // amount_in for exact input.
-                            amount_in_1,
-                            // amount_out for exact output.
-                            U256::from(0),
-                        ),
-                    )
-                    .unwrap()
-                    .to_vec();
+                // here we divide by power_of_zeroth_index to get the actual value back.
+                // since amount_in is already in fixed point value.
+                // if amount_in wasn't in FPV then no divide needed.
+                let slippage_1 = (slippage_1 * expected_output_1) / power_of_zeroth_index;
 
-                // zero'th indexed token in one'th indexed token out.
-                let encoded_zero_for_one_swap = sepolia_test_contract
-                    .encode_with_selector(
-                        zero_for_one_selector,
-                        (
-                            cheap_pool_oneth,
-                            sender,
-                            sqrt_x96,
-                            // amount_in for exact input.
-                            amount_in,
-                            // amount out for exact output.
-                            U256::from(0),
-                        ),
-                    )
-                    .unwrap()
-                    .to_vec();
+                // minimun token out units.
+                // minimum output for this swap has to be atleat the input amount of previous swap.
+                let amount_out_min_1 = expected_output_1 - slippage_1;
 
-                // token for testing on sepolia.
-                // let _test_token: Address =
-                //     "0x391e06B49B5483877DB943c0041C4aE6097Cd1B3".parse::<Address>()?;
+                // buy amount in fixed point value.
+                let buy_amount_1: U256 = expected_output_1;
 
-                let execution_bytes_data = encode(&[
-                    Token::Bytes(encoded_zero_for_one_swap),
-                    Token::Bytes(encoded_one_for_zero_swap),
-                ]);
+                println!(
+                    "Back run tx: pool: {:#?} token_out: {:#?} token_in: {:#?} price: {:#?}",
+                    cheap_pool_zeroth, token_out_1, token_in_1, single_unit_price_1
+                );
+                println!(
+                    "buy_amount: {:#?} amount_in: {:#?} amount_out_min: {:#?}",
+                    buy_amount_1, amount_in_1, amount_out_min_1
+                );
 
-                println!("{:?}", execution_bytes_data);
+                // second check after slippage.
+                // second swap output has to be greater than the input of the first swap.
+                if amount_out_min_1 < amount_in {
+                    println!("non profitable after slippage");
+                    println!("current iteration oneForZero after slippage: {counter}\n");
+                    if counter.gt(&iter_limit) {
+                        break 'outer;
+                    }
+                    continue 'outer;
+                } else {
+                    println!("Building transaction post slippage check B1S1.\n");
+                    let mut f = File::options().append(true).open("./logs.txt")?;
+                    writeln!(&mut f, "after slippage profit:{}", {
+                        amount_out_min_1 - amount_in
+                    })?;
+                }
 
-                // flash loan encoding, with extra bytes data for swap exe.
-                let encoded_loan_with_bytes_to_swap = sepolia_test_contract
-                    .encode_with_selector(
-                        flash_loan_selector,
-                        (token_in, amount_in, execution_bytes_data),
-                    )
-                    .unwrap();
+                // conditional execution ahead.
+                match hr.l_zero_th_dex == Some("uni_v2") {
+                    true => {
+                        println!("execution start from uni_v2, buying token underlying on zero'th index.");
+                        let flash_loan_selector_str: &str = "0x5107d61e";
+                        let flash_loan_selector = function_selector(flash_loan_selector_str);
 
-                // send transaction only after back run txn simulation outputs profitable result.
-                let signing_client = SignerMiddleware::new(client.clone(), wallet.clone());
-                let tx = TransactionRequest::new()
-                    .to(SEPOLIA_TEST_CONTRACT_ADDRESS.parse::<Address>()?)
-                    .data(encoded_loan_with_bytes_to_swap);
-                let pending_tx = signing_client.send_transaction(tx, None).await?;
-                let receipt = pending_tx
-                    .await?
-                    .ok_or_else(|| eyre::format_err!("tx dropped from mempool"))?;
+                        let encoded_v2_swap = Bytes::new();
 
-                let tx = signing_client
-                    .get_transaction(receipt.transaction_hash)
-                    .await?;
-                println!("Sent tx: {}\n", serde_json::to_string(&tx)?);
-                println!("Tx receipt: {}", serde_json::to_string(&receipt)?);
+                        // flash loan encoding, with extra bytes data for swap exe.
+                        let encoded_loan_with_bytes_to_swap = sepolia_test_contract
+                            .encode_with_selector(
+                                flash_loan_selector,
+                                (token_in, amount_in, encoded_v2_swap),
+                            )
+                            .unwrap();
+
+                        // send transaction only after back run txn simulation outputs profitable result.
+                        let signing_client = SignerMiddleware::new(client.clone(), wallet.clone());
+                        let tx = TransactionRequest::new()
+                            .to(SEPOLIA_TEST_CONTRACT_ADDRESS.parse::<Address>()?)
+                            .data(encoded_loan_with_bytes_to_swap);
+
+                        let pending_tx = signing_client.send_transaction(tx, None).await?;
+                        let receipt = pending_tx
+                            .await?
+                            .ok_or_else(|| eyre::format_err!("tx dropped from mempool"))?;
+
+                        // let tx = signing_client
+                        //     .get_transaction(receipt.transaction_hash)
+                        //     .await?;
+                        // println!("Sent tx: {}\n", serde_json::to_string(&tx)?);
+                        println!("Tx receipt: {}", serde_json::to_string(&receipt)?);
+                    }
+                    false => {
+                        println!("execution start from uni_v3, buying token underlying on zero'th index.");
+                        // smart contract executions for swap.
+                        let flash_loan_selector_str: &str = "0x5107d61e";
+                        let flash_loan_selector = function_selector(flash_loan_selector_str);
+
+                        // token swap encoding.
+                        let one_for_zero_selector_str: &str = "0xa2eb605f";
+                        let zero_for_one_selector_str: &str = "0x211760ee";
+
+                        let one_for_zero_selector = function_selector(one_for_zero_selector_str);
+                        let zero_for_one_selector = function_selector(zero_for_one_selector_str);
+
+                        // one'th indexed token in zero'th indexed token out.
+                        let encoded_one_for_zero_swap = sepolia_test_contract
+                            .encode_with_selector(
+                                one_for_zero_selector,
+                                (
+                                    cheap_pool_zeroth,
+                                    sender,
+                                    sqrt_x96,
+                                    // amount_in for exact input.
+                                    amount_in_1,
+                                    // amount_out for exact output.
+                                    U256::from(0),
+                                ),
+                            )
+                            .unwrap()
+                            .to_vec();
+
+                        // zero'th indexed token in one'th indexed token out.
+                        let encoded_zero_for_one_swap = sepolia_test_contract
+                            .encode_with_selector(
+                                zero_for_one_selector,
+                                (
+                                    cheap_pool_oneth,
+                                    sender,
+                                    sqrt_x96,
+                                    // amount_in for exact input.
+                                    amount_in,
+                                    // amount out for exact output.
+                                    U256::from(0),
+                                ),
+                            )
+                            .unwrap()
+                            .to_vec();
+
+                        // token for testing on sepolia.
+                        // let _test_token: Address =
+                        //     "0x391e06B49B5483877DB943c0041C4aE6097Cd1B3".parse::<Address>()?;
+
+                        let execution_bytes_data = encode(&[
+                            Token::Bytes(encoded_zero_for_one_swap),
+                            Token::Bytes(encoded_one_for_zero_swap),
+                        ]);
+
+                        println!("{:?}", execution_bytes_data);
+
+                        // flash loan encoding, with extra bytes data for swap exe.
+                        let encoded_loan_with_bytes_to_swap = sepolia_test_contract
+                            .encode_with_selector(
+                                flash_loan_selector,
+                                (token_in, amount_in, execution_bytes_data),
+                            )
+                            .unwrap();
+
+                        // send transaction only after back run txn simulation outputs profitable result.
+                        let signing_client = SignerMiddleware::new(client.clone(), wallet.clone());
+                        let tx = TransactionRequest::new()
+                            .to(SEPOLIA_TEST_CONTRACT_ADDRESS.parse::<Address>()?)
+                            .data(encoded_loan_with_bytes_to_swap);
+                        let pending_tx = signing_client.send_transaction(tx, None).await?;
+                        let receipt = pending_tx
+                            .await?
+                            .ok_or_else(|| eyre::format_err!("tx dropped from mempool"))?;
+
+                        let tx = signing_client
+                            .get_transaction(receipt.transaction_hash)
+                            .await?;
+                        println!("Sent tx: {}\n", serde_json::to_string(&tx)?);
+                        println!("Tx receipt: {}", serde_json::to_string(&receipt)?);
+                    }
+                }
             }
         }
     }
