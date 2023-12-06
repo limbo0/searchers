@@ -10,7 +10,7 @@ edition.workspace = true
 ethers = { workspace = true, features = ["legacy", "ws", "rustls"] }
 # Ethers' async features rely upon the Tokio async runtime.
 tokio = { workspace = true, features = ["full"] }
-# Flexible concrete Error Reporting type built on std::error::Error with customizable Reports
-eyre = { workspace = true }
 serde_json = { workspace = true }
 alloy-sol-types.workspace = true
+alloy-primitives.workspace = true
+eyre.workspace = true

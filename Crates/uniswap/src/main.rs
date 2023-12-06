@@ -1,3 +1,6 @@
+// use alloy_sol_types::{sol, SolCall, SolValue};
+// use alloy_primitives::{address, Address, FixedBytes, I256, U160, U256};
+
 use ethers::{
     abi::{encode, Abi, ParamType, Token, TupleParam, Uint},
     contract::Contract,
@@ -42,6 +45,12 @@ const FORK_TEST_CONTRACT_ADDRESS: &str = "0xa68E430060f74F9821D2dC9A9E2CE3aF7d84
 const MAINNET_FORK: &str = "http://127.0.0.1:8545";
 const ALICE_PK: &str = "0xac0974bec39a17e36ba4a6b4d238ff94";
 const ALICE: &str = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+
+// function selectors
+const FLASH_LOAN_SELECTOR_STR: &str = "0x5107d61e";
+const ONE_FOR_ZERO_SELECTOR_STR: &str = "0x5b6e55ed";
+const ZERO_FOR_ONE_SELECTOR_STR: &str = "0xcbf3f685";
+const V2_SWAP_SELECTOR_STR: &str = "0x7b4514cb";
 
 type NodeClient = Arc<Provider<Ws>>;
 
@@ -463,9 +472,10 @@ async fn buy_zero_sell_zero<T>(
     sepolia_test_contract: Contract<T>,
 ) -> Result<()> {
     let starting_buy_units = U256::from(100);
-    let slippage_percent: f64 = 0.5;
+    let slippage_percent: f64 = 0.2;
     let mut counter: u32 = 0;
-    let iter_limit: u32 = 999;
+    let iter_limit: u32 = 49;
+    let zero = U256::from(0);
 
     // pair addresses.
     let pair_address = get_pair_address(token0, token1, fee, client).await?;
@@ -507,13 +517,13 @@ async fn buy_zero_sell_zero<T>(
         // variable to buy token underlying on 0th index of the pool.
         // FIRST SWAP STARTS HERE.
         // First swap in this pool, buying cheaper token underlying in the zero'th index of the pool.
-        let cheap_pool_zeroth: H160 = hr.l_zero_th_pair.unwrap();
+        let cheap_pool_zeroth = hr.l_zero_th_pair.unwrap();
 
         // buy this token.(token_out)
-        let token_out: H160 = hr.l_zero_th_token.unwrap();
+        let token_out = hr.l_zero_th_token.unwrap();
 
         // (token_in)send this token to the pool in exchange of token_out.
-        let token_in: H160 = hr.l_one_th_token.unwrap();
+        let token_in = hr.l_one_th_token.unwrap();
 
         // swap price of a single unit, in terms of the another token involved in the swap pool.
         let single_unit_price: U256 = hr.l_zero_th_price_raw.unwrap();
@@ -557,13 +567,13 @@ async fn buy_zero_sell_zero<T>(
         // variable to buy token underlying on 1th index of the pool.
         // SECOND SWAP STARTS HERE.
         // Second swap in this pool,where the token on 1'th index is cheaper.
-        let cheap_pool_oneth: H160 = hr.l_one_th_pair.unwrap();
+        let cheap_pool_oneth = hr.l_one_th_pair.unwrap();
 
         // buy this token(token_out)
-        let token_out_1: H160 = hr.l_one_th_token.unwrap();
+        let token_out_1 = hr.l_one_th_token.unwrap();
 
         // (token_in) send this token to the pool in exchange of token_out.
-        let token_in_1: H160 = hr.l_zero_th_token.unwrap();
+        let token_in_1 = hr.l_zero_th_token.unwrap();
 
         // swap price in terms of the another token involved in the swap pool.
         let single_unit_price_1: U256 = hr.l_one_th_price_raw.unwrap();
@@ -639,10 +649,13 @@ async fn buy_zero_sell_zero<T>(
                 // second check after slippage.
                 // second swap output has to be greater than the input of the first swap.
                 if amount_out_min_1 < amount_in {
+                    println!("non profitable after slippage check!");
+
                     if counter.gt(&iter_limit) {
                         break 'outer;
+                    } else {
+                        continue 'outer;
                     }
-                    println!("non profitable");
                     continue 'outer;
                 } else {
                     println!("Building transaction post slippage check.\n");
@@ -656,16 +669,70 @@ async fn buy_zero_sell_zero<T>(
                 match hr.l_zero_th_dex == Some("uni_v2") {
                     true => {
                         println!("execution start from uni_v2, buying token underlying on zero'th index.");
-                        let flash_loan_selector_str: &str = "0x5107d61e";
-                        let flash_loan_selector = function_selector(flash_loan_selector_str);
 
-                        let encoded_v2_swap = Bytes::new();
+                        // Start with flash loan.
+                        // Swap data is passed in as bytes in an ordered fashion, which will be decoded in the contract.
+                        let v2_swap_selector = function_selector(V2_SWAP_SELECTOR_STR);
+
+                        // First swap.
+                        // one'th indexed token in zero'th indexed token out.
+                        let encoded_v2_swap = sepolia_test_contract
+                            .encode_with_selector(
+                                v2_swap_selector,
+                                (
+                                    cheap_pool_zeroth,
+                                    sender,
+                                    sqrt_x96,
+                                    zero,           // amount0In
+                                    amount_out_min, // amount0Out
+                                    amount_in,      // amount1In
+                                    zero,           // amount1out
+                                    false,          // zeroIn oneOut ?
+                                    Bytes::new(),
+                                ),
+                            )
+                            .unwrap()
+                            .to_vec();
+
+                        // Second swap.
+                        // zero'th indexed token in one'th indexed token out.
+                        let zero_for_one_selector = function_selector(ZERO_FOR_ONE_SELECTOR_STR);
+                        let encoded_zero_for_one_swap = if hr.l_one_th_dex == Some("uni_v3") {
+                            sepolia_test_contract
+                                .encode_with_selector(
+                                    zero_for_one_selector,
+                                    (
+                                        cheap_pool_oneth,
+                                        sender,
+                                        sqrt_x96,
+                                        amount_in_1,      // amount0In
+                                        zero,             // amount0Out
+                                        zero,             // amount1In
+                                        amount_out_min_1, // amount1out
+                                        true,             // zeroIn oneOut ? :only care on v2_swap.
+                                        Bytes::new(),
+                                    ),
+                                )
+                                .unwrap()
+                                .to_vec()
+                        } else {
+                            println!("Shouldn't happen!");
+                            panic!("shouldn't")
+                        };
+
+                        let execution_bytes_data = encode(&[
+                            Token::Bytes(encoded_v2_swap),
+                            Token::Bytes(encoded_zero_for_one_swap),
+                        ]);
+
+                        println!("{:?}", execution_bytes_data);
 
                         // flash loan encoding, with extra bytes data for swap exe.
+                        let flash_loan_selector = function_selector(FLASH_LOAN_SELECTOR_STR);
                         let encoded_loan_with_bytes_to_swap = sepolia_test_contract
                             .encode_with_selector(
                                 flash_loan_selector,
-                                (token_in, amount_in, encoded_v2_swap),
+                                (token_in, amount_in, execution_bytes_data),
                             )
                             .unwrap();
 
@@ -685,19 +752,14 @@ async fn buy_zero_sell_zero<T>(
                         println!("Sent tx: {}\n", serde_json::to_string(&tx)?);
                         println!("Tx receipt: {}", serde_json::to_string(&receipt)?);
                     }
+
                     false => {
                         println!("execution start from uni_v3, buying token underlying on zero'th index.");
-                        // smart contract executions for swap.
-                        let flash_loan_selector_str: &str = "0x5107d61e";
-                        let flash_loan_selector = function_selector(flash_loan_selector_str);
 
-                        // token swap encoding.
-                        let one_for_zero_selector_str: &str = "0xa2eb605f";
-                        let zero_for_one_selector_str: &str = "0x211760ee";
+                        // Swap data is passed in as bytes in an orderly fashion, which will be decoded in the contract.
+                        let one_for_zero_selector = function_selector(ONE_FOR_ZERO_SELECTOR_STR);
 
-                        let one_for_zero_selector = function_selector(one_for_zero_selector_str);
-                        let zero_for_one_selector = function_selector(zero_for_one_selector_str);
-
+                        // First swap.
                         // one'th indexed token in zero'th indexed token out.
                         let encoded_one_for_zero_swap = sepolia_test_contract
                             .encode_with_selector(
@@ -706,49 +768,53 @@ async fn buy_zero_sell_zero<T>(
                                     cheap_pool_zeroth,
                                     sender,
                                     sqrt_x96,
-                                    // amount_in for exact input.
-                                    amount_in,
-                                    // amount_out for exact output.
-                                    U256::from(0),
+                                    zero,           // amount0In
+                                    amount_out_min, // amount0Out
+                                    amount_in,      // amount1In
+                                    zero,           // amount1out
+                                    false,          // zeroIn oneOut ? :only care on v2_swap.
+                                    Bytes::new(),
                                 ),
                             )
                             .unwrap()
                             .to_vec();
 
+                        // Second swap.
                         // zero'th indexed token in one'th indexed token out.
-                        let encoded_zero_for_one_swap = sepolia_test_contract
-                            .encode_with_selector(
-                                zero_for_one_selector,
-                                (
-                                    cheap_pool_oneth,
-                                    sender,
-                                    sqrt_x96,
-                                    // amount_in for exact input.
-                                    amount_in_1,
-                                    // amount out for exact output.
-                                    U256::from(0),
-                                ),
-                            )
-                            .unwrap()
-                            .to_vec();
-
-                        // token for testing on sepolia.
-                        // let _test_token: Address =
-                        //     "0x391e06B49B5483877DB943c0041C4aE6097Cd1B3".parse::<Address>()?;
-
-                        // let execution_bytes_data = encode(&[
-                        //     Token::Bytes(encoded_one_for_zero_swap.to_vec()),
-                        //     Token::Bytes(encoded_zero_for_one_swap.to_vec()),
-                        // ]);
+                        let v2_swap_selector = function_selector(V2_SWAP_SELECTOR_STR);
+                        let encoded_v2_swap = if hr.l_one_th_dex == Some("uni_v3") {
+                            // expecting to be false.
+                            sepolia_test_contract
+                                .encode_with_selector(
+                                    v2_swap_selector,
+                                    (
+                                        cheap_pool_oneth,
+                                        sender,
+                                        sqrt_x96,
+                                        amount_in_1,
+                                        zero,
+                                        zero,
+                                        amount_out_min_1,
+                                        true, // zeroIn oneOut ?
+                                        Bytes::new(),
+                                    ),
+                                )
+                                .unwrap()
+                                .to_vec()
+                        } else {
+                            println!("Shouldn't happen!");
+                            panic!("shouldn't")
+                        };
 
                         let execution_bytes_data = encode(&[
                             Token::Bytes(encoded_one_for_zero_swap),
-                            Token::Bytes(encoded_zero_for_one_swap),
+                            Token::Bytes(encoded_v2_swap),
                         ]);
 
                         println!("{:?}", execution_bytes_data);
 
                         // flash loan encoding, with extra bytes data for swap exe.
+                        let flash_loan_selector = function_selector(FLASH_LOAN_SELECTOR_STR);
                         let encoded_loan_with_bytes_to_swap = sepolia_test_contract
                             .encode_with_selector(
                                 flash_loan_selector,
@@ -990,8 +1056,7 @@ async fn buy_one_sell_one<T>(
                 match hr.l_zero_th_dex == Some("uni_v2") {
                     true => {
                         println!("execution start from uni_v2, buying token underlying on zero'th index.");
-                        let flash_loan_selector_str: &str = "0x5107d61e";
-                        let flash_loan_selector = function_selector(flash_loan_selector_str);
+                        let flash_loan_selector = function_selector(FLASH_LOAN_SELECTOR_STR);
 
                         let encoded_v2_swap = Bytes::new();
 
@@ -1023,15 +1088,11 @@ async fn buy_one_sell_one<T>(
                     false => {
                         println!("execution start from uni_v3, buying token underlying on zero'th index.");
                         // smart contract executions for swap.
-                        let flash_loan_selector_str: &str = "0x5107d61e";
-                        let flash_loan_selector = function_selector(flash_loan_selector_str);
+                        let flash_loan_selector = function_selector(FLASH_LOAN_SELECTOR_STR);
 
                         // token swap encoding.
-                        let one_for_zero_selector_str: &str = "0xa2eb605f";
-                        let zero_for_one_selector_str: &str = "0x211760ee";
-
-                        let one_for_zero_selector = function_selector(one_for_zero_selector_str);
-                        let zero_for_one_selector = function_selector(zero_for_one_selector_str);
+                        let one_for_zero_selector = function_selector(ONE_FOR_ZERO_SELECTOR_STR);
+                        let zero_for_one_selector = function_selector(ZERO_FOR_ONE_SELECTOR_STR);
 
                         // one'th indexed token in zero'th indexed token out.
                         let encoded_one_for_zero_swap = sepolia_test_contract
