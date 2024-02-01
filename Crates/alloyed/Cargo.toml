@@ -6,6 +6,18 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-alloy-primitives.workspace = true
-alloy-sol-types.workspace = true
+# alloy-json-abi = { workspace = true, optional = true }
+# alloy-primitives.workspace = true
+# alloy-sol-types.workspace = true
+# alloy-sol-macro.workspace = true
 eyre.workspace = true
+
+
+serde_json.workspace = true
+ethers = { workspace = true, features = ["legacy", "ws", "rustls"] }
+tokio = { workspace = true, features = ["full"] }
+
+reqwest.workspace = true
+serde = { version = "1.0.196", features = ["derive"] }
+[features]
+# json = ["dep:alloy-json-abi"]
