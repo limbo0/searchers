@@ -24,22 +24,46 @@ use crate::{
 use ethers::{
     abi::Abi,
     contract::Contract,
+    middleware::providers::Provider,
     types::{H160, U256},
 };
 use eyre::Result;
 use serde_json;
-use std::{collections::hash_map::HashMap, sync::Arc};
+use std::{
+    collections::{hash_map::HashMap, VecDeque},
+    sync::Arc,
+};
 
 const CURVE_REGISTERY: &str = "0x90E00ACe148ca3b23Ac1bC8C240C2a7Dd9c2d7f5";
 const MAINNET_FORK: &str = "http://127.0.0.1:8545";
 const INFURA_MAINNET: &str = "https://mainnet.infura.io/v3/af270f1023f34ef88fdcf6b85286734c";
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TokensMetadata<'a> {
     name: Option<&'a str>,
     symblol: Option<&'a str>,
-    address: H160,
+    pub address: H160,
     decimals: U256,
+}
+
+impl<'a> TokensMetadata<'a> {
+    pub fn new() -> Self {
+        TokensMetadata {
+            name: None,
+            symblol: None,
+            address: H160::zero(),
+            decimals: U256::zero(),
+        }
+    }
+
+    pub fn set_address(&mut self, new_address: H160) {
+        self.address = new_address;
+    }
+
+    // returns decimals of the token.
+    pub fn get_decimals(&self) -> U256 {
+        self.decimals
+    }
 }
 
 /// Plain pool: a pool where two or more stablecoins are paired against one another.
@@ -54,9 +78,61 @@ pub struct IndexedPools {
     pub address: H160,
 }
 impl IndexedPools {
+    pub async fn get_underlying_coins_in_pool(&self, client: NodeClient) -> Result<VecDeque<H160>> {
+        let curve_contract = Contract::new(
+            CURVE_REGISTERY.parse::<H160>()?,
+            get_curve_registery_abi().await?,
+            client.clone(),
+        );
+
+        let tokens_addresses: Vec<H160> = curve_contract
+            .method("get_underlying_coins", self.address)?
+            .call()
+            .await?;
+
+        let mut vec_meta = VecDeque::with_capacity(tokens_addresses.len());
+        let mut token_counter = 0usize;
+
+        for tokens in tokens_addresses {
+            if tokens == crate::ZERO_ADDRESS.parse::<H160>()? {
+                continue;
+            } else {
+                vec_meta.push_back(tokens);
+                token_counter += 1usize;
+            }
+        }
+
+        vec_meta.resize(token_counter, H160::zero());
+        Ok(vec_meta)
+    }
+
     fn get_address(&self) -> H160 {
         self.address
     }
+}
+
+/// creates a contract instance for the pool, and calls the get_dy view function.
+pub async fn expected_output(
+    pool: H160,
+    token_in: i128,
+    token_out: i128,
+    amount_in: U256,
+    client: NodeClient,
+) -> Result<U256> {
+    let contract = create_contract_instance_for_any_address(
+        ethers::utils::hex::encode_prefixed(pool.as_bytes()).to_string(),
+        "curve",
+        client,
+    )
+    .await
+    .expect("failed to create contract!");
+
+    Ok(contract
+        .method("get_dy", (token_in, token_out, amount_in))
+        .expect("method call failed!")
+        .call()
+        .await
+        .expect("failed to calculate expected return!"))
 }
 
 pub async fn get_curve_registery_abi() -> Result<Abi> {
@@ -65,8 +141,43 @@ pub async fn get_curve_registery_abi() -> Result<Abi> {
     )?)
 }
 
-/// Returns all the pool address in the curve registery contract.
-pub async fn get_pool_address(client: NodeClient) -> Result<Vec<IndexedPools>> {
+pub async fn get_all_pools(client: NodeClient) -> Result<VecDeque<H160>> {
+    let curve_contract = Contract::new(
+        CURVE_REGISTERY.parse::<H160>().unwrap(),
+        get_curve_registery_abi().await?,
+        client.clone(),
+    );
+
+    // total number of pools in curve registery contract.
+    let pool_count: U256 = curve_contract.method("pool_count", ())?.call().await?;
+    eprintln!("{:?} pools in curve registery contract.", pool_count);
+
+    let mut pool_index: U256 = U256::from(0);
+
+    // creates a vector of IndexedPools
+    // IndexedPools consists of pool address and its index on the registery contract.
+    let mut curve_registery_pool_addresses = VecDeque::with_capacity(pool_count.as_usize());
+
+    loop {
+        if pool_index == pool_count {
+            break;
+        } else {
+            let pool_address: H160 = curve_contract
+                .method("pool_list", pool_index)?
+                .call()
+                .await?;
+
+            curve_registery_pool_addresses.push_back(pool_address);
+
+            pool_index += U256::from(1);
+        }
+    }
+
+    Ok(curve_registery_pool_addresses)
+}
+
+/// Returns all the pool address in the curve registery contract with it's corresponding index.
+pub async fn get_pool_address_with_index(client: NodeClient) -> Result<Vec<IndexedPools>> {
     let curve_contract = Contract::new(
         CURVE_REGISTERY.parse::<H160>().unwrap(),
         get_curve_registery_abi().await?,
@@ -104,14 +215,11 @@ pub async fn get_pool_address(client: NodeClient) -> Result<Vec<IndexedPools>> {
     Ok(curve_registery_pool_addresses)
 }
 
-// in a pool, there consists of N number of tokens
-// and each tokens may have a different decimals.
-// function takes a vector of IndexedPools which consists of pool address and its index of the registery contract.
-// returns tokens and decimals for each token involved in the pool.
-pub async fn get_underlying_coins_in_pool_with_decimal<'a>(
-    list_pool_address: &Vec<IndexedPools>,
+/// returns tokens and decimals for each token involved in the pool.
+pub async fn get_coins_in_pool_with_decimal<'a>(
+    all_curve_pools: VecDeque<H160>,
     client: NodeClient,
-) -> Result<HashMap<H160, Vec<TokensMetadata<'a>>>> {
+) -> Result<HashMap<H160, VecDeque<TokensMetadata<'a>>>> {
     let curve_contract = Contract::new(
         CURVE_REGISTERY.parse::<H160>()?,
         get_curve_registery_abi().await?,
@@ -120,36 +228,35 @@ pub async fn get_underlying_coins_in_pool_with_decimal<'a>(
 
     // creates a hash_map with only needed capacity.
     // list of token address and its decimals, of its corresponding pool.
-    let mut tokens_in_pool: HashMap<H160, Vec<TokensMetadata>> =
-        HashMap::with_capacity(list_pool_address.len());
+    let mut tokens_in_pool: HashMap<H160, VecDeque<TokensMetadata>> =
+        HashMap::with_capacity(all_curve_pools.len());
 
-    let mut curr_index = U256::from(0);
+    // Get a list of the swappable coins within a pool.
+    for pool in all_curve_pools {
+        let tokens_addresses: Vec<H160> = curve_contract.method("get_coins", pool)?.call().await?;
 
-    // Get a list of the swappable underlying coins within a pool.
-    for items in list_pool_address {
-        let current_address = items.get_address();
+        let tokens_decimals: Vec<U256> =
+            curve_contract.method("get_decimals", pool)?.call().await?;
 
-        let tokens_addresses: Vec<H160> = curve_contract
-            .method("get_underlying_coins", current_address)?
-            .call()
-            .await?;
+        // convert to VecDeque and sort.
+        let mut tokens_addresses = VecDeque::from(tokens_addresses);
+        tokens_addresses.make_contiguous().sort_unstable();
 
-        let tokens_decimals: Vec<U256> = curve_contract
-            .method("get_underlying_decimals", current_address)?
-            .call()
-            .await?;
+        // convert to VecDeque and sort.
+        let mut tokens_decimals = VecDeque::from(tokens_decimals);
+        tokens_decimals.make_contiguous().sort_unstable();
 
         // every length of vec depends on the number of tokens in the pool.
-        let mut vec_meta: Vec<TokensMetadata> = Vec::with_capacity(tokens_addresses.len());
+        let mut vec_md: VecDeque<TokensMetadata> = VecDeque::with_capacity(tokens_addresses.len());
 
         for (token, decimal) in tokens_addresses
             .into_iter()
             .zip(tokens_decimals.into_iter())
         {
-            if token == crate::ZERO_ADDRESS.parse::<H160>()? {
+            if token.is_zero() {
                 continue;
             } else {
-                vec_meta.push(TokensMetadata {
+                vec_md.push_back(TokensMetadata {
                     name: None,
                     symblol: None,
                     address: token,
@@ -157,9 +264,46 @@ pub async fn get_underlying_coins_in_pool_with_decimal<'a>(
                 });
             }
         }
-        tokens_in_pool.insert(current_address, vec_meta);
+        tokens_in_pool.insert(pool, vec_md);
+    }
+    Ok(tokens_in_pool)
+}
 
-        curr_index += U256::from(1);
+/// Returns all the tokens in the pools.
+pub async fn get_tokens_of_pool(
+    all_curve_pools: VecDeque<H160>,
+    client: NodeClient,
+) -> Result<HashMap<H160, VecDeque<H160>>> {
+    let curve_contract = Contract::new(
+        CURVE_REGISTERY.parse::<H160>()?,
+        get_curve_registery_abi().await?,
+        client.clone(),
+    );
+
+    // creates a hash_map with only needed capacity.
+    // list of token address and its decimals, of its corresponding pool.
+    let mut tokens_in_pool: HashMap<H160, VecDeque<H160>> =
+        HashMap::with_capacity(all_curve_pools.len());
+
+    // Get a list of the swappable coins within a pool.
+    for pool in all_curve_pools {
+        let tokens_addresses: Vec<H160> = curve_contract.method("get_coins", pool)?.call().await?;
+
+        // convert to VecDeque and sort.
+        let mut tokens_addresses = VecDeque::from(tokens_addresses);
+        tokens_addresses.make_contiguous().sort_unstable();
+
+        // every length of vec depends on the number of tokens in the pool.
+        let mut vec_md: VecDeque<H160> = VecDeque::with_capacity(tokens_addresses.len());
+
+        for token in tokens_addresses {
+            if token.is_zero() {
+                continue;
+            } else {
+                vec_md.push_back(token);
+            }
+        }
+        tokens_in_pool.insert(pool, vec_md);
     }
     Ok(tokens_in_pool)
 }
@@ -167,4 +311,53 @@ pub async fn get_underlying_coins_in_pool_with_decimal<'a>(
 #[cfg(test)]
 pub mod tests {
     use super::*;
+
+    // #[tokio::test]
+    // async fn test_expected_output() {
+    //     let provider = Provider::try_from(INFURA_MAINNET).unwrap();
+    //     let client = Arc::new(provider.clone());
+    //
+    //     let pool_addresses = get_pool_address_with_index(client.clone()).await.unwrap();
+    //
+    //     let expected = pool_addresses
+    //         .first()
+    //         .expect("empty vector")
+    //         .expected_output(
+    //             0.into(),
+    //             1.into(),
+    //             U256::from(1000000000000000000000u128),
+    //             client.clone(),
+    //         )
+    //         .await
+    //         .unwrap();
+    //
+    //     assert_ne!(expected, U256::from(0));
+    // }
+
+    // #[test]
+    // fn test_expected_output() {
+    //     tokio::runtime::Builder::new_multi_thread()
+    //         .enable_all()
+    //         .build()
+    //         .unwrap()
+    //         .block_on(async {
+    //             let provider = Provider::try_from(INFURA_MAINNET).unwrap();
+    //             let client = Arc::new(provider.clone());
+    //
+    //             let pool_addresses = get_pool_address(client.clone()).await.unwrap();
+    //
+    //             let expected = pool_addresses
+    //                 .first()
+    //                 .expect("empty vector")
+    //                 .expected_output(
+    //                     0.into(),
+    //                     1.into(),
+    //                     U256::from(1000000000000000000000u128),
+    //                     client.clone(),
+    //                 )
+    //                 .await;
+    //
+    //             assert_ne!(expected, U256::from(0));
+    //         });
+    // }
 }

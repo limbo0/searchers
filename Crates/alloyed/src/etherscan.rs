@@ -1,18 +1,13 @@
 use ethers::{
-    abi::Abi,
-    contract::Contract,
-    providers::{Http, Provider},
-    types::H160,
+    abi::Abi, contract::Contract, middleware::providers::Provider, providers::Http, types::H160,
 };
 
 use eyre::Result;
 use reqwest::*;
 use serde::{Deserialize, Serialize};
 use std::{
-    alloc::handle_alloc_error,
     env,
-    ffi::OsStr,
-    fs::{self, File, OpenOptions},
+    fs::{self, File},
     io::Read,
     path::Path,
     sync::Arc,
@@ -56,9 +51,9 @@ pub async fn get_abi_from_etherscan(contract_address: &str, dex_name: &str) -> R
     let file_stem_ext = file_stem_ext.as_str();
 
     // first checks if the directory exists, if not creates one.
-    std::fs::read_dir(Path::new(file_parent)).unwrap_or_else(|_| {
-        std::fs::create_dir(file_parent).unwrap();
-        std::fs::read_dir(Path::new(file_parent)).unwrap()
+    fs::read_dir(Path::new(file_parent)).unwrap_or_else(|_| {
+        fs::create_dir_all(Path::new(file_parent)).unwrap();
+        fs::read_dir(Path::new(Path::new(file_parent))).unwrap()
     });
 
     let file_path = format!("{}{}", file_parent, file_stem_ext);
@@ -88,34 +83,25 @@ pub async fn get_abi_from_etherscan(contract_address: &str, dex_name: &str) -> R
         if result == "exveed limit" {
             tokio::time::sleep(Duration::from_secs(10)).await;
 
-            std::fs::write(
+            fs::write(
                 file_path,
                 handle_etherscan_api_calls(endpoint, file_path).await?,
             )
             .unwrap();
 
-            Ok(std::fs::OpenOptions::new()
-                .read(true)
-                .open(file_path)
-                .unwrap())
+            Ok(fs::OpenOptions::new().read(true).open(file_path).unwrap())
         } else {
             // over write on the same file path, with only the abi of the contract.
-            std::fs::write(file_path, result).unwrap();
+            fs::write(file_path, result).unwrap();
 
-            Ok(std::fs::OpenOptions::new()
-                .read(true)
-                .open(file_path)
-                .unwrap())
+            Ok(fs::OpenOptions::new().read(true).open(file_path).unwrap())
         }
     } else {
         eprint!(
             "{}'s abi exist, fetching from local file!\n",
             contract_address
         );
-        Ok(std::fs::OpenOptions::new()
-            .read(true)
-            .open(file_path)
-            .unwrap())
+        Ok(fs::OpenOptions::new().read(true).open(file_path).unwrap())
     }
 }
 
@@ -123,7 +109,7 @@ pub async fn handle_etherscan_api_calls(endpoint: &str, file_path: &Path) -> Res
     let response = reqwest::get(endpoint).await?.text().await?;
 
     // writes the entire response to this file path.
-    std::fs::write(file_path, response).unwrap();
+    fs::write(file_path, response).unwrap();
     // open the previously written file.
     let mut written_file = File::open(file_path).unwrap();
 
