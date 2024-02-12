@@ -129,7 +129,14 @@ pub async fn expected_output(
 
     Ok(contract
         .method("get_dy", (token_in, token_out, amount_in))
-        .expect("method call failed!")
+        .unwrap_or_else(|_| {
+            contract
+                .method::<(U256, U256, U256), U256>(
+                    "get_dy",
+                    (token_in.into(), token_out.into(), amount_in),
+                )
+                .unwrap()
+        })
         .call()
         .await
         .expect("failed to calculate expected return!"))
