@@ -1,9 +1,8 @@
-use ethers::{
-    abi::Abi, contract::Contract, middleware::providers::Provider, providers::Http, types::H160,
-};
+use ethers::{abi::Abi, contract::Contract, types::H160};
+
+use crate::NodeClient;
 
 use eyre::Result;
-use reqwest::*;
 use serde::{Deserialize, Serialize};
 use std::{
     env,
@@ -13,7 +12,6 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-type NodeClient = Arc<Provider<Http>>;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ApiResponse {
@@ -80,7 +78,7 @@ pub async fn get_abi_from_etherscan(contract_address: &str, dex_name: &str) -> R
         let result = handle_etherscan_api_calls(endpoint, file_path).await?;
 
         //TODO: Error handling while more than five calls are made under 1 second.
-        if result == "exveed limit" {
+        if result == "exceed limit" {
             tokio::time::sleep(Duration::from_secs(10)).await;
 
             fs::write(
@@ -97,10 +95,10 @@ pub async fn get_abi_from_etherscan(contract_address: &str, dex_name: &str) -> R
             Ok(fs::OpenOptions::new().read(true).open(file_path).unwrap())
         }
     } else {
-        eprint!(
-            "{}'s abi exist, fetching from local file!\n",
-            contract_address
-        );
+        // eprint!(
+        //     "{}'s abi exist, fetching from local file!\n",
+        //     contract_address
+        // );
         Ok(fs::OpenOptions::new().read(true).open(file_path).unwrap())
     }
 }

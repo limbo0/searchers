@@ -1,9 +1,12 @@
 use alloyed::{
-    curve_dex::{self, IndexedPools},
+    curve_dex::{
+        self, best_pool_to_swap_in_curve, get_all_pools, index_tokens_in_pools, tokens_and_decimals,
+    },
     etherscan::{create_contract_instance_for_any_address, get_abi_from_etherscan},
-    {fetch_price_on_all_dex, NodeClient},
+    NodeClient,
 };
 use ethers::{
+    abi::token,
     middleware::providers::Provider,
     types::{H160, H256, U256},
 };
@@ -24,7 +27,13 @@ async fn main() -> Result<()> {
     let client = Arc::new(provider.clone());
     // let (tx, mut rx) = tokio::sync::mpsc::channel(512);
 
-    fetch_price_on_all_dex(USDC.parse::<H160>().unwrap(), client.clone()).await;
+    // fetch_price_on_all_dex(USDC.parse::<H160>().unwrap(), client.clone()).await;
+
+    let returnsdata = index_tokens_in_pools(USDC.parse::<H160>().unwrap(), client.clone())
+        .await
+        .unwrap();
+
+    println!("{:#?}", returnsdata);
 
     Ok(())
 }
