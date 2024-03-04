@@ -1,9 +1,9 @@
 use alloyed::{
     curve_dex::{
-        self, best_pool_to_swap_in_curve, get_all_pools, index_tokens_in_pools, tokens_and_decimals,
+        self, get_all_pools, get_tokens_of_pool, get_underlying_tokens_of_pool,
+        pools_contains_itoken,
     },
-    etherscan::{create_contract_instance_for_any_address, get_abi_from_etherscan},
-    NodeClient,
+    max_output_pool, NodeClient,
 };
 use ethers::{
     abi::token,
@@ -11,7 +11,7 @@ use ethers::{
     types::{H160, H256, U256},
 };
 use eyre::Result;
-use std::sync::Arc;
+use std::{collections::HashMap, fmt::format, sync::Arc};
 
 const INFURA_MAINNET: &str = "https://mainnet.infura.io/v3/af270f1023f34ef88fdcf6b85286734c";
 const CURVE_FI_DUSD: &str = "0x8038C01A0390a8c547446a0b2c18fc9aEFEcc10c";
@@ -25,15 +25,30 @@ async fn main() -> Result<()> {
     // rpc client, needed to interact with ethereum blockchain.
     let provider = Provider::try_from(INFURA_MAINNET).unwrap();
     let client = Arc::new(provider.clone());
-    // let (tx, mut rx) = tokio::sync::mpsc::channel(512);
 
-    // fetch_price_on_all_dex(USDC.parse::<H160>().unwrap(), client.clone()).await;
+    let input_token = USDC.parse::<H160>().unwrap();
+    let one_dai: U256 = U256::from(1000000000000000000u128);
+    let one_usdc: U256 = U256::from(1000000u32);
 
-    let returnsdata = index_tokens_in_pools(USDC.parse::<H160>().unwrap(), client.clone())
+    let all_curve_pools = get_all_pools(client.clone()).await.unwrap();
+
+    let curve_pools_coins = get_tokens_of_pool(&all_curve_pools, client.clone())
         .await
         .unwrap();
 
-    println!("{:#?}", returnsdata);
+    // let curve_pools_underlying_coins =
+    //     get_underlying_tokens_of_pool(&all_curve_pools, client.clone())
+    //         .await
+    //         .unwrap();
+
+    // assuming if the input token exist in pool, a swap is possible.
+    let pools_containing_it = pools_contains_itoken(input_token, client.clone(), curve_pools_coins)
+        .await
+        .unwrap();
+
+    let max_output = max_output_pool(pools_containing_it, input_token, one_usdc, client.clone())
+        .await
+        .unwrap();
 
     Ok(())
 }

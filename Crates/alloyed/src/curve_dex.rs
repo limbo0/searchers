@@ -22,16 +22,18 @@ use ethers::{
 };
 use eyre::Result;
 use serde_json;
-use std::collections::{hash_map::HashMap, VecDeque};
+use std::{
+    collections::{hash_map::HashMap, VecDeque},
+    sync::{Arc, Mutex},
+};
 
 const CURVE_REGISTERY: &str = "0x90E00ACe148ca3b23Ac1bC8C240C2a7Dd9c2d7f5";
-const CURVE_EXCHANG: &str = "0xD1602F68CC7C4c7B59D686243EA35a9C73B0c6a2";
+const CURVE_EXCHANGE: &str = "0xD1602F68CC7C4c7B59D686243EA35a9C73B0c6a2";
 const MAINNET_FORK: &str = "http://127.0.0.1:8545";
 const INFURA_MAINNET: &str = "https://mainnet.infura.io/v3/af270f1023f34ef88fdcf6b85286734c";
 
 /// Plain pool: a pool where two or more stablecoins are paired against one another.
 /// Meta pool: a pool where a stablecoin is paired against the LP token from another pool.
-// pub struct Curve {}
 
 /// The main registry contract. Used to locate pools and query information about them.
 pub async fn get_curve_registery_abi() -> Result<Abi> {
@@ -162,6 +164,7 @@ pub async fn tokens_and_decimals(
 }
 
 /// Curve's contract finds pool, where we can execute swap based on out input and output tokens.
+///TODO: function selector which takes indexes for return value.
 pub async fn find_pools_to_swap(
     token_in: H160,
     token_out: H160,
@@ -181,15 +184,15 @@ pub async fn find_pools_to_swap(
     Ok(pool_address)
 }
 
-///Returns the address of the pool offering the best rate, and the expected amount received in the swap.
-pub async fn find_best_pool_to_swap(
+/// Find the pool offering the best rate for a given swap.
+pub async fn pool_which_returns_most_output(
     token_in: H160,
     token_out: H160,
     amount_in: U256,
     client: NodeClient,
 ) -> Result<(H160, U256)> {
     let exchange_contract = Contract::new(
-        CURVE_EXCHANG.parse::<H160>()?,
+        CURVE_EXCHANGE.parse::<H160>()?,
         get_curve_exchange_contract_abi().await?,
         client.clone(),
     );
@@ -204,7 +207,7 @@ pub async fn find_best_pool_to_swap(
 
 /// Returns all the tokens in the pools.
 /// key: pool_address, value: vector of tokens.
-pub async fn get_coins_of_pool(
+pub async fn get_tokens_of_pool(
     curve_pools: &VecDeque<H160>,
     client: NodeClient,
 ) -> Result<HashMap<H160, VecDeque<H160>>> {
@@ -237,7 +240,7 @@ pub async fn get_coins_of_pool(
 
 /// Returns all the underlying tokens in the pools.
 /// key: pool_address, value: vector of tokens.
-pub async fn get_underlying_coins_of_pool(
+pub async fn get_underlying_tokens_of_pool(
     all_curve_pools: &VecDeque<H160>,
     client: NodeClient,
 ) -> Result<HashMap<H160, VecDeque<H160>>> {
@@ -272,121 +275,84 @@ pub async fn get_underlying_coins_of_pool(
     Ok(underlying_tokens_in_pool)
 }
 
-/// curve's method call which return the best possible output.
-pub async fn best_pool_to_swap_in_curve(token_in: H160, client: NodeClient) {
-    let all_curve_pools = get_all_pools(client.clone()).await.unwrap();
-
-    let curve_pools_with_tokens = get_coins_of_pool(&all_curve_pools, client.clone())
-        .await
-        .unwrap();
-
-    // iterates all pools and returns references to the tokens in each pool.
-    for (pool, tokens_list) in curve_pools_with_tokens.iter() {
-        for tokens in tokens_list {
-            if *tokens != token_in {
-                let (pool, price) =
-                    find_best_pool_to_swap(token_in, *tokens, U256::from(1000000), client.clone())
-                        .await
-                        .unwrap();
-                println!(
-                    "best_pool: {:?} for_token: {:?}\nbest_price: {:?}",
-                    pool, tokens, price
-                );
-            } else {
-                continue;
-            }
-        }
-    }
-}
-
 /// contains tokens and its indexes.
 #[derive(Debug)]
 pub struct SwapMetadata {
-    token_in_index: i128,
-    tokens_and_indexes: HashMap<H160, i128>,
+    pub token_in_index: i128,
+    pub tokens_and_indexes: HashMap<H160, i128>,
 }
 
-/// finds the index of the input token and fetches output amount,
-/// in the context of every other token in the pool.
-pub async fn index_tokens_in_pools(
-    token_in: H160,
+/// Only returns the pools which contains input token.
+pub async fn pools_contains_itoken(
+    input_token: H160,
     client: NodeClient,
+    curve_pools_coins: HashMap<H160, VecDeque<H160>>,
 ) -> Result<HashMap<H160, SwapMetadata>> {
-    let all_curve_pools = get_all_pools(client.clone()).await.unwrap();
-
-    // returns all tokens in each pool.
-    let curve_pools_with_tokens = get_coins_of_pool(&all_curve_pools, client.clone())
-        .await
-        .unwrap();
-
     let mut swap_info: HashMap<H160, SwapMetadata> = HashMap::new();
 
-    for (pool, tokens_list) in curve_pools_with_tokens.iter() {
+    for (pool, tokens_list) in curve_pools_coins.iter() {
         // first check: if the pool contains the input token.
-        for tokens in tokens_list {
-            // this block only executes if the input token is in the pool's token list.
-            if tokens_list.contains(&token_in) {
-                // println!("found: {:?} in_pool:{:?}\n", tokens, pool);
+        // this block only executes if the input token is in the pool's token list.
+        if tokens_list.contains(&input_token) {
+            println!("{:?} contains IT: {:#?}", pool, tokens_list);
 
-                // will create a contract instance for the pool, where the token was found.
-                let contract = etherscan::create_contract_instance_for_any_address(
-                    hex::encode_prefixed(pool.as_bytes()).to_string(),
-                    "curve",
-                    client.clone(),
-                )
-                .await
-                .unwrap();
+            // will create a contract instance for the pool, where the token was found.
+            let contract = etherscan::create_contract_instance_for_any_address(
+                hex::encode_prefixed(pool.as_bytes()).to_string(),
+                "curve",
+                client.clone(),
+            )
+            .await
+            .unwrap();
 
-                // keys are tokens, values are its indexes on the pool.
-                // this will hold the token and it's correct indexes of any pools.
-                let mut tokens_and_indexes: HashMap<H160, i128> =
-                    HashMap::with_capacity(curve_pools_with_tokens.get(pool).unwrap().len());
+            // keys are tokens, values are its indexes on the pool.
+            // this will hold the token and it's correct indexes of any pools.
+            let mut tokens_and_indexes: HashMap<H160, i128> =
+                HashMap::with_capacity(curve_pools_coins.get(pool).unwrap().len());
 
-                // This part is rearranging the correct token's index of every pool.
-                // every iteration's length depends on the number of tokens in the pool.
-                for index in 0..curve_pools_with_tokens.get(pool).unwrap().len() {
-                    // error handling since some of the params takes i128, while other take U256.
-                    let token: H160 = contract
-                        .method::<i128, H160>("coins", index.try_into().unwrap())
-                        .unwrap_or_else(|_| {
-                            contract
-                                .method::<U256, H160>("coins", index.try_into().unwrap())
-                                .unwrap()
-                        })
-                        .call()
-                        .await
-                        .unwrap();
+            // This part is rearranging the correct token's index of every pool.
+            // every iteration's length depends on the number of tokens in the pool.
+            for index in 0..curve_pools_coins.get(pool).unwrap().len() {
+                let token: H160 = contract
+                    .method::<i128, H160>("coins", index.try_into().unwrap())
+                    .unwrap_or_else(|_| {
+                        contract
+                            .method::<U256, H160>("coins", index.try_into().unwrap())
+                            .unwrap()
+                    })
+                    .call()
+                    .await
+                    .unwrap();
 
-                    // println!("inserting\ntoken: {:?} index:{:?}\n", token, index);
-                    tokens_and_indexes.insert(token, index.try_into().unwrap());
-                }
-
-                // initializing with 0
-                // since we already have checked that the input token exists on this pool.
-                // we can guarentee that the input's token index will be updated.
-                let mut token_in_index = 0i128;
-
-                // finding the index of the input token, in the current pool.
-                for (token, index) in tokens_and_indexes.iter() {
-                    if *token == token_in {
-                        token_in_index = *index;
-                        // println!("index of token input: {:?} of pool: {:?}\n", index, pool);
-                        break;
-                    } else {
-                        continue;
-                    }
-                }
-
-                swap_info.insert(
-                    *pool,
-                    SwapMetadata {
-                        token_in_index,
-                        tokens_and_indexes,
-                    },
-                );
-            } else {
-                continue;
+                // println!("inserting\ntoken: {:?} index:{:?}\n", token, index);
+                tokens_and_indexes.insert(token, index.try_into().unwrap());
             }
+
+            // initializing with 0
+            // since we already have checked that the input token exists on this pool.
+            // we can guarentee that the input's token index will be updated.
+            let mut token_in_index = 0i128;
+
+            // finding the index of the input token, in the current pool.
+            for (token, index) in tokens_and_indexes.iter() {
+                if *token == input_token {
+                    token_in_index = *index;
+                    // println!("index of token input: {:?} of pool: {:?}\n", index, pool);
+                    break;
+                } else {
+                    continue;
+                }
+            }
+
+            swap_info.insert(
+                *pool,
+                SwapMetadata {
+                    token_in_index,
+                    tokens_and_indexes,
+                },
+            );
+        } else {
+            continue;
         }
     }
     Ok(swap_info)
