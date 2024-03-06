@@ -31,7 +31,6 @@ async fn main() -> Result<()> {
     let one_usdc: U256 = U256::from(1000000u32);
 
     let all_curve_pools = get_all_pools(client.clone()).await.unwrap();
-
     let curve_pools_coins = get_tokens_of_pool(&all_curve_pools, client.clone())
         .await
         .unwrap();
@@ -42,13 +41,32 @@ async fn main() -> Result<()> {
     //         .unwrap();
 
     // assuming if the input token exist in pool, a swap is possible.
-    let pools_containing_it = pools_contains_itoken(input_token, client.clone(), curve_pools_coins)
-        .await
-        .unwrap();
+    let pools_containing_it =
+        pools_contains_itoken(input_token, client.clone(), &curve_pools_coins)
+            .await
+            .unwrap();
 
     let max_output = max_output_pool(pools_containing_it, input_token, one_usdc, client.clone())
         .await
         .unwrap();
+
+    println!("{:#?}", max_output);
+
+    for x in max_output.iter() {
+        println!("{:#?}", x);
+        // let max_out = max_output_pool(
+        //     pools_contains_itoken(*x.0, client.clone(), &curve_pools_coins)
+        //         .await
+        //         .unwrap(),
+        //     *x.0,
+        //     x.1.output_amount,
+        //     client.clone(),
+        // )
+        // .await
+        // .unwrap();
+        //
+        // println!("{:#?}", max_out);
+    }
 
     Ok(())
 }

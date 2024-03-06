@@ -38,15 +38,14 @@ use std::{
     sync::Arc,
 };
 
-use crate::curve_dex::expected_output;
-use curve_dex::SwapMetadata;
+use curve_dex::{expected_output, SwapMetadata};
 
 pub type NodeClient = std::sync::Arc<ethers::providers::Provider<ethers::providers::Http>>;
 
 #[derive(Debug)]
 pub struct PoolPrice {
-    pool: H160,
-    output_amount: U256,
+    pub pool: H160,
+    pub output_amount: U256,
 }
 
 pub async fn max_output_pool(
@@ -58,6 +57,7 @@ pub async fn max_output_pool(
     let mut max_output_buffer: HashMap<H160, PoolPrice> = HashMap::new();
 
     for (pool, smdata) in pools_containing_it {
+        println!("currently looking at pool: {:?}", pool);
         for (token, index) in smdata.tokens_and_indexes.iter() {
             if *index != smdata.token_in_index {
                 // get the max data.
@@ -71,9 +71,13 @@ pub async fn max_output_pool(
                 .unwrap();
 
                 // initial check
+                // manual price calculation if zero value was returned above.
                 match max_pool_data.1.is_zero() {
                     true => {
-                        println!("zero value returned for token output: {:?}\nmanually calculating on the pool: {:?}", token, pool);
+                        println!(
+                            "Swap address: {:?} found for token: {:?}, calculating price manually",
+                            max_pool_data.0, token
+                        );
                         let ex_out = expected_output(
                             pool,
                             smdata.token_in_index,
@@ -83,61 +87,70 @@ pub async fn max_output_pool(
                         )
                         .await
                         .unwrap();
-                        println!("return price from pool: {:?}\n", ex_out);
-                        continue;
+                        println!("Output_amount: {:?} from pool: {:?}\n", ex_out, pool);
 
-                        //TODO: Seperating a function to update the return data.
-                        // Comparing the expected outputs, returns the highest output only.
-                    }
-                    false => {
-                        println!("initial check happening.");
-                        // println!("{:?} {:#?}", *token, max_pool_data);
-
-                        // if the output token is in the buffer
-                        // check if the pool to swap for it matchs the current returned pool
-                        // if false, compare output amount's and update if current is greater.
-                        if max_output_buffer.contains_key(token)
-                            && (max_output_buffer.get_key_value(token).unwrap().1.pool
-                                != max_pool_data.0)
-                        {
-                            // update if current value is greater than the prev.
-                            println!("token already exist but swap pool is different!\ncomparing the output amount's!");
-                            if max_pool_data.1
-                                > (max_output_buffer
+                        match max_output_buffer.contains_key(token) {
+                            true => {
+                                if max_output_buffer
                                     .get_key_value(token)
                                     .unwrap()
                                     .1
-                                    .output_amount)
-                            {
-                                println!("Updating price and swap pool.\n");
-                                if let Some(pp) = max_output_buffer.get_mut(token) {
-                                    pp.pool = max_pool_data.0;
-                                    pp.output_amount = max_pool_data.1;
+                                    .output_amount
+                                    < ex_out
+                                {
+                                    println!("Updating price and swap pool with new values.\n");
+                                    if let Some(pp) = max_output_buffer.get_mut(token) {
+                                        pp.pool = pool;
+                                        pp.output_amount = ex_out;
+                                    }
                                 }
-                            } else {
-                                println!(
-                                    "didnt need to update.\nprev_price: {:?} prev_pool: {:?} curr_price: {:?} curr_pool: {:?}",
-                                    max_output_buffer
-                                        .get(token)
-                                        .unwrap()
-                                        .output_amount,
-                                    max_output_buffer
-                                        .get(token)
-                                        .unwrap()
-                                        .pool,
-                                    max_pool_data.1,
-                                    max_pool_data.0,
-                                )
                             }
-                        } else {
-                            println!("initial insert happening!\n");
-                            max_output_buffer.insert(
-                                *token,
-                                PoolPrice {
-                                    pool: max_pool_data.0,
-                                    output_amount: max_pool_data.1,
-                                },
-                            );
+
+                            false => {
+                                println!("Initial insert after manual output_amount check.");
+                                max_output_buffer.insert(
+                                    *token,
+                                    PoolPrice {
+                                        pool,
+                                        output_amount: ex_out,
+                                    },
+                                );
+                            }
+                        };
+                    }
+                    false => {
+                        println!("initial check happening.");
+
+                        // if the output token is in the buffer
+                        // compare the output amount and update if necessary.
+                        match max_output_buffer.contains_key(token) {
+                            true => {
+                                if max_output_buffer
+                                    .get_key_value(token)
+                                    .unwrap()
+                                    .1
+                                    .output_amount
+                                    < max_pool_data.1
+                                {
+                                    dbg!("Updating price and swap pool with new values.\n");
+                                    if let Some(pp) = max_output_buffer.get_mut(token) {
+                                        pp.pool = max_pool_data.0;
+                                        pp.output_amount = max_pool_data.1;
+                                    }
+                                } else {
+                                    println!("No update needed.");
+                                }
+                            }
+                            false => {
+                                println!("Initial insert.");
+                                max_output_buffer.insert(
+                                    *token,
+                                    PoolPrice {
+                                        pool: max_pool_data.0,
+                                        output_amount: max_pool_data.1,
+                                    },
+                                );
+                            }
                         }
                     }
                 }

@@ -286,7 +286,7 @@ pub struct SwapMetadata {
 pub async fn pools_contains_itoken(
     input_token: H160,
     client: NodeClient,
-    curve_pools_coins: HashMap<H160, VecDeque<H160>>,
+    curve_pools_coins: &HashMap<H160, VecDeque<H160>>,
 ) -> Result<HashMap<H160, SwapMetadata>> {
     let mut swap_info: HashMap<H160, SwapMetadata> = HashMap::new();
 
@@ -294,7 +294,7 @@ pub async fn pools_contains_itoken(
         // first check: if the pool contains the input token.
         // this block only executes if the input token is in the pool's token list.
         if tokens_list.contains(&input_token) {
-            println!("{:?} contains IT: {:#?}", pool, tokens_list);
+            // println!("{:?} contains IT: {:#?}", pool, tokens_list);
 
             // will create a contract instance for the pool, where the token was found.
             let contract = etherscan::create_contract_instance_for_any_address(
